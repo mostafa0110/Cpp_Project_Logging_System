@@ -6,6 +6,7 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <sstream>
 
 int main()
 {
@@ -18,7 +19,7 @@ int main()
 
     if (!result)
     {
-        std::cerr << "Failed to create LogManager: " << toString(result.error()) << '\n';
+        std::cerr << "Failed to create LogManager: \n" ;
         return 1;
     }
 
@@ -55,21 +56,52 @@ int main()
         // Read and log CPU telemetry
         if (cpuSource.readSource(rawData))
         {
-            // Extract CPU usage percentage from /proc/stat (simplified)
-            // In real use, you'd parse the data properly
-            if (auto msg = cpuFormatter.formatDataToLogMsg("65.5"))
-            { // Simulated value
-                logger->log(msg.value());
+            // Parse /proc/stat format: "cpu  78412 3040 14706 1944026 ..."
+            // Extract the first number (user ticks) after "cpu"
+            std::istringstream iss(rawData);
+            std::string label;
+            long long userTicks;
+            
+            iss >> label >> userTicks;
+            
+            if (label == "cpu" && iss)
+            {
+                if (auto msg = cpuFormatter.formatDataToLogMsg(std::to_string(userTicks)))
+                {
+                    logger->log(msg.value());
+                }
             }
         }
 
         // Read and log RAM telemetry
         if (memSource.readSource(rawData))
         {
-            // Extract RAM usage from /proc/meminfo (simplified)
-            if (auto msg = ramFormatter.formatDataToLogMsg("10.2"))
-            { // Simulated value in GB
-                logger->log(msg.value());
+            // Parse /proc/meminfo to find MemAvailable
+            // Format: "MemAvailable:   11228316 kB"
+            std::istringstream memStream(rawData);
+            std::string line;
+            
+            while (std::getline(memStream, line))
+            {
+                if (line.find("MemAvailable:") == 0)
+                {
+                    std::istringstream lineStream(line);
+                    std::string label;
+                    long long memKB;
+                    
+                    lineStream >> label >> memKB;
+                    
+                    if (label == "MemAvailable:" && lineStream)
+                    {
+                        // Convert KB to GB for display
+                        double memGB = memKB / (1024.0 * 1024.0);
+                        if (auto msg = ramFormatter.formatDataToLogMsg(std::to_string(memGB)))
+                        {
+                            logger->log(msg.value());
+                        }
+                    }
+                    break;
+                }
             }
         }
 
