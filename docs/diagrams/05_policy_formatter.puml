@@ -1,0 +1,74 @@
+@startuml PolicyFormatter
+
+!theme plain
+skinparam linetype ortho
+
+title Policy-Based Design (LogFormatter)
+
+class "LogFormatter<Policy>" as LogFormatter <<template>> {
+    - msgDescription(val, severity): string
+    - currentTimeStamp(): string
+    ==
+    + formatDataToLogMsg(raw: string&): optional<LogMessage>
+}
+
+package "Policies" #FFF3E0 {
+    class CpuPolicy <<struct>> {
+        + {static} context = TelemetrySrc::CPU
+        + {static} unit = "%"
+        + {static} WARNING = 75.0f
+        + {static} CRITICAL = 90.0f
+        --
+        + {static} inferSeverity(val): SeverityLvl
+    }
+
+    class GpuPolicy <<struct>> {
+        + {static} context = TelemetrySrc::GPU
+        + {static} unit = "C"
+        + {static} WARNING = 75.0f
+        + {static} CRITICAL = 90.0f
+        --
+        + {static} inferSeverity(val): SeverityLvl
+    }
+
+    class RamPolicy <<struct>> {
+        + {static} context = TelemetrySrc::RAM
+        + {static} unit = "GB"
+        + {static} WARNING = 12.0f
+        + {static} CRITICAL = 15.0f
+        --
+        + {static} inferSeverity(val): SeverityLvl
+    }
+}
+
+class LogMessage {
+    - source: TelemetrySrc
+    - severity: SeverityLvl
+    - timeStamp: string
+    - payload: string
+}
+
+LogFormatter ..> CpuPolicy : <<bind>>
+LogFormatter ..> GpuPolicy : <<bind>>
+LogFormatter ..> RamPolicy : <<bind>>
+LogFormatter ..> LogMessage : <<creates>>
+
+note right of LogFormatter
+  **Policy-Based Design**
+  
+  Compile-time configuration:
+  LogFormatter<CpuPolicy> cpuFmt;
+  LogFormatter<GpuPolicy> gpuFmt;
+  
+  Zero runtime overhead!
+end note
+
+note bottom of CpuPolicy
+  inferSeverity() determines
+  severity based on thresholds:
+  > 90% → CRITICAL
+  > 75% → WARNING
+  else  → INFO
+end note
+
+@enduml

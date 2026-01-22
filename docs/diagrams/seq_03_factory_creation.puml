@@ -1,0 +1,69 @@
+@startuml FactorySequence
+
+!theme plain
+title Sink Creation using Factory Pattern
+
+actor "Client" as Client
+participant "LogSinkFactory" as Factory
+participant "ConsoleSinkImpl" as Console
+participant "FileSinkImpl" as File
+
+== Create Console Sink ==
+
+Client -> Factory: create(LogSinkType::CONSOLE, "")
+activate Factory
+
+Factory -> Factory: switch(type)
+note right: case CONSOLE:
+
+create Console
+Factory -> Console: make_unique<ConsoleSinkImpl>()
+Factory --> Client: expected<unique_ptr<ILogSink>>
+
+deactivate Factory
+
+== Create File Sink (Success) ==
+
+Client -> Factory: create(LogSinkType::FILE, "app.log")
+activate Factory
+
+Factory -> Factory: switch(type)
+note right: case FILE:
+
+alt config.empty()
+    Factory --> Client: unexpected(MISSING_FILEPATH)
+else config provided
+    create File
+    Factory -> File: make_unique<FileSinkImpl>("app.log")
+    Factory --> Client: expected<unique_ptr<ILogSink>>
+end
+
+deactivate Factory
+
+== Create File Sink (Error) ==
+
+Client -> Factory: create(LogSinkType::FILE, "")
+activate Factory
+
+Factory -> Factory: switch(type)
+Factory -> Factory: config.empty() == true
+
+Factory --> Client: unexpected(MISSING_FILEPATH)
+note right #FF6B6B: Error: filepath required
+
+deactivate Factory
+
+== Create Unknown Type ==
+
+Client -> Factory: create((LogSinkType)99, "")
+activate Factory
+
+Factory -> Factory: switch(type)
+note right: default:
+
+Factory --> Client: unexpected(UNKNOWN_SINK_TYPE)
+note right #FF6B6B: Error: unknown type
+
+deactivate Factory
+
+@enduml

@@ -1,0 +1,80 @@
+@startuml BuilderSequence
+
+!theme plain
+title LogManager Creation using Builder Pattern
+
+actor "Main Application" as App
+participant "LogManagerBuilder" as Builder
+participant "LogSinkFactory" as Factory
+participant "ConsoleSinkImpl" as Console
+participant "FileSinkImpl" as File
+participant "LogManager" as Manager
+
+== Build LogManager Step by Step ==
+
+App -> Builder: LogManagerBuilder()
+activate Builder
+Builder --> App: builder
+deactivate Builder
+
+App -> Builder: withConsoleSink()
+activate Builder
+create Console
+Builder -> Console: make_unique<ConsoleSinkImpl>()
+Builder -> Builder: sinks.push_back(console)
+Builder --> App: builder&
+deactivate Builder
+
+App -> Builder: withFileSink("app.log")
+activate Builder
+alt filepath is empty
+    Builder -> Builder: errors.push_back(EMPTY_FILEPATH)
+else filepath valid
+    create File
+    Builder -> File: make_unique<FileSinkImpl>("app.log")
+    Builder -> Builder: sinks.push_back(file)
+end
+Builder --> App: builder&
+deactivate Builder
+
+App -> Builder: withBufferSize(50)
+activate Builder
+alt size == 0
+    Builder -> Builder: errors.push_back(INVALID_BUFFER_SIZE)
+else size > 0
+    Builder -> Builder: bufferSize = 50
+end
+Builder --> App: builder&
+deactivate Builder
+
+== Build Final Object ==
+
+App -> Builder: tryBuild()
+activate Builder
+
+alt errors not empty
+    Builder --> App: unexpected(errors.front())
+else sinks empty
+    Builder --> App: unexpected(NO_SINKS_CONFIGURED)
+else valid configuration
+    create Manager
+    Builder -> Manager: make_unique<LogManager>(bufferSize)
+    
+    loop for each sink
+        Builder -> Manager: addSink(move(sink))
+    end
+    
+    Builder --> App: expected<LogManager>
+end
+deactivate Builder
+
+note over App, Manager
+  **Fluent API Usage:**
+  auto result = LogManagerBuilder()
+      .withConsoleSink()
+      .withFileSink("app.log")
+      .withBufferSize(50)
+      .tryBuild();
+end note
+
+@enduml

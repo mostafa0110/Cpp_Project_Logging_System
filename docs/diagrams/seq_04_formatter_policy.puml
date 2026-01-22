@@ -1,0 +1,66 @@
+@startuml FormatterSequence
+
+!theme plain
+title LogFormatter - Policy-Based Message Creation
+
+actor "Client" as Client
+participant "LogFormatter<CpuPolicy>" as Formatter
+participant "CpuPolicy" as Policy
+participant "LogMessage" as Msg
+
+== Format Raw Data to LogMessage ==
+
+Client -> Formatter: formatDataToLogMsg("92.5")
+activate Formatter
+
+alt raw.empty()
+    Formatter --> Client: std::nullopt
+else raw has data
+    Formatter -> Formatter: val = stof("92.5")
+    note right: val = 92.5f
+    
+    Formatter -> Policy: inferSeverity(92.5)
+    activate Policy
+    note right of Policy
+        92.5 > CRITICAL (90.0)
+        → return SeverityLvl::CRITICAL
+    end note
+    Policy --> Formatter: SeverityLvl::CRITICAL
+    deactivate Policy
+    
+    Formatter -> Formatter: currentTimeStamp()
+    note right: "2026-01-22 14:30:45"
+    
+    Formatter -> Formatter: msgDescription(92.5, CRITICAL)
+    activate Formatter #LightBlue
+    note right
+        Uses Policy::context (CPU)
+        Uses Policy::unit ("%")
+        Uses Policy::CRITICAL (90.0)
+        
+        Output: "CPU Usage: 92.5% | 
+        CRITICAL! Exceeded threshold (90.0%)"
+    end note
+    deactivate Formatter
+    
+    create Msg
+    Formatter -> Msg: LogMessage(\n  TelemetrySrc::CPU,\n  SeverityLvl::CRITICAL,\n  timestamp,\n  description)
+    
+    Formatter --> Client: optional<LogMessage>(msg)
+end
+
+deactivate Formatter
+
+== Different Severity Levels ==
+
+note over Client, Policy
+  **Policy Thresholds (CpuPolicy):**
+  
+  | Value    | Condition      | Severity |
+  |----------|----------------|----------|
+  | val > 90 | > CRITICAL     | CRITICAL |
+  | val > 75 | > WARNING      | WARNING  |
+  | val ≤ 75 | normal         | INFO     |
+end note
+
+@enduml

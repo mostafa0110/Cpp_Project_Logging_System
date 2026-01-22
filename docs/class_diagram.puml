@@ -1,0 +1,253 @@
+@startuml LoggingSystem
+
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam classFontStyle bold
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 60
+skinparam ranksep 40
+
+title C++ Logging System - Class Diagram
+
+' ==================== ENUMS (Top) ====================
+package "Enums" as EnumsPkg #DDDDDD {
+    together {
+        enum LogSinkType {
+            CONSOLE
+            FILE
+            SOCKET
+        }
+
+        enum SeverityLvl {
+            CRITICAL
+            WARNING
+            INFO
+        }
+
+        enum TelemetrySrc {
+            GPU
+            CPU
+            RAM
+        }
+    }
+    
+    together {
+        enum SinkCreationError {
+            MISSING_FILEPATH
+            MISSING_SOCKET_ADDRESS
+            UNKNOWN_SINK_TYPE
+        }
+
+        enum BuilderError {
+            NO_SINKS_CONFIGURED
+            INVALID_BUFFER_SIZE
+            EMPTY_FILEPATH
+            NULL_SINK
+            SINK_CREATION_FAILED
+        }
+    }
+}
+
+' ==================== CORE MESSAGE ====================
+package "Core" as CorePkg #E3F2FD {
+    class LogMessage {
+        - source: TelemetrySrc
+        - severity: SeverityLvl
+        - timeStamp: string
+        - payload: string
+        ==
+        + LogMessage(source, severity, timeStamp, payload)
+        + <<friend>> operator<<(os, msg): ostream&
+    }
+
+    class "RingBuffer<T>" as RingBuffer <<template>> {
+        - buffer: vector<optional<T>>
+        - head, tail, elemCount, maxCapacity: size_t
+        ==
+        + RingBuffer(capacity: size_t)
+        + tryPush<U>(value: U&&): bool
+        + tryPop(): optional<T>
+        + isEmpty(), isFull(): bool
+        + count(), capacity(): size_t
+    }
+}
+
+' ==================== INTERFACES ====================
+package "Interfaces" as InterfacesPkg #E8F5E9 {
+    interface ILogSink <<interface>> {
+        + {abstract} write(msg: LogMessage&): void
+        + {abstract} ~ILogSink()
+    }
+
+    interface ITelemetrySource <<interface>> {
+        + {abstract} openSource(): bool
+        + {abstract} readSource(out: string&): bool
+        + {abstract} ~ITelemetrySource()
+    }
+}
+
+' ==================== LOG MANAGER ====================
+package "Manager" as ManagerPkg #E3F2FD {
+    class LogManager {
+        - sinks: vector<unique_ptr<ILogSink>>
+        - buffer: RingBuffer<LogMessage>
+        ==
+        + LogManager(bufferCapacity: size_t)
+        + addSink(sink: unique_ptr<ILogSink>): void
+        + log(msg: LogMessage&): void
+        + flush(): void
+    }
+}
+
+' ==================== BUILDER & FACTORY ====================
+package "Creational Patterns" as CreationalPkg #E8EAF6 {
+    class LogManagerBuilder <<Builder>> {
+        - sinks: vector<unique_ptr<ILogSink>>
+        - bufferSize: size_t
+        - errors: vector<BuilderError>
+        ==
+        + withConsoleSink(): LogManagerBuilder&
+        + withFileSink(filepath): LogManagerBuilder&
+        + withSink(type, config): LogManagerBuilder&
+        + withBufferSize(size): LogManagerBuilder&
+        + build(): unique_ptr<LogManager>
+        + tryBuild(): expected<LogManager, BuilderError>
+    }
+
+    class LogSinkFactory <<Factory>> {
+        + {static} create(type, config): expected<ILogSink, SinkCreationError>
+    }
+}
+
+' ==================== POLICIES ====================
+package "Policies" as PoliciesPkg #FFF3E0 {
+    together {
+        class CpuPolicy <<struct>> {
+            + {static} context = CPU
+            + {static} unit = "%"
+            + {static} WARNING = 75.0f
+            + {static} CRITICAL = 90.0f
+            + {static} inferSeverity(val): SeverityLvl
+        }
+
+        class GpuPolicy <<struct>> {
+            + {static} context = GPU
+            + {static} unit = "C"
+            + {static} WARNING = 75.0f
+            + {static} CRITICAL = 90.0f
+            + {static} inferSeverity(val): SeverityLvl
+        }
+
+        class RamPolicy <<struct>> {
+            + {static} context = RAM
+            + {static} unit = "GB"
+            + {static} WARNING = 12.0f
+            + {static} CRITICAL = 15.0f
+            + {static} inferSeverity(val): SeverityLvl
+        }
+    }
+}
+
+' ==================== FORMATTER ====================
+package "Formatter" as FormatterPkg #FCE4EC {
+    class "LogFormatter<Policy>" as LogFormatter <<template>> {
+        - msgDescription(val, severity): string
+        - currentTimeStamp(): string
+        ==
+        + formatDataToLogMsg(raw): optional<LogMessage>
+    }
+}
+
+' ==================== SINK IMPLEMENTATIONS ====================
+package "Sink Implementations" as SinksPkg #F3E5F5 {
+    class ConsoleSinkImpl {
+        + write(msg: LogMessage&): void
+    }
+
+    class FileSinkImpl {
+        - file: ofstream
+        ==
+        + FileSinkImpl(path: string&)
+        + write(msg: LogMessage&): void
+    }
+}
+
+' ==================== TELEMETRY IMPLEMENTATIONS ====================
+package "Telemetry Implementations" as TelemetryPkg #E0F7FA {
+    class FileTelemetrySourceImpl {
+        - filePath: string
+        - file: SafeFile
+        ==
+        + openSource(): bool
+        + readSource(out): bool
+    }
+
+    class SocketTelemetrySourceImpl {
+        - socketPath: string
+        - socket: SafeSocket
+        ==
+        + openSource(): bool
+        + readSource(out): bool
+    }
+}
+
+' ==================== RAII WRAPPERS ====================
+package "RAII Wrappers" as RAIIPkg #FFFDE7 {
+    class SafeFile {
+        - fd: int
+        ==
+        + open(path, flags, mode): bool
+        + readAll(out): bool
+        + close(): void
+        + isValid(): bool
+    }
+
+    class SafeSocket {
+        - sockfd: int
+        ==
+        + create(type): bool
+        + connect(path): bool
+        + readString(out, maxSize): bool
+        + close(): void
+        + isValid(): bool
+    }
+}
+
+' ==================== LAYOUT HINTS ====================
+EnumsPkg -[hidden]down- InterfacesPkg
+InterfacesPkg -[hidden]down- CorePkg
+CorePkg -[hidden]down- ManagerPkg
+PoliciesPkg -[hidden]right- FormatterPkg
+
+' ==================== KEY RELATIONSHIPS ====================
+
+' Inheritance (Strategy Pattern)
+ConsoleSinkImpl --|> ILogSink
+FileSinkImpl --|> ILogSink
+FileTelemetrySourceImpl --|> ITelemetrySource
+SocketTelemetrySourceImpl --|> ITelemetrySource
+
+' Composition
+LogManager *-down- RingBuffer : contains
+LogManager o-right- ILogSink : aggregates
+
+' Builder creates Manager
+LogManagerBuilder .down.> LogManager : <<creates>>
+LogManagerBuilder .right.> LogSinkFactory : <<uses>>
+
+' Factory creates Sinks
+LogSinkFactory .down.> ILogSink : <<creates>>
+
+' Formatter creates Messages
+LogFormatter .down.> LogMessage : <<creates>>
+
+' RAII composition
+FileTelemetrySourceImpl *-- SafeFile
+SocketTelemetrySourceImpl *-- SafeSocket
+
+' Policy binding (simplified - one arrow)
+LogFormatter ..> CpuPolicy : <<uses policy>>
+
+@enduml
+

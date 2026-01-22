@@ -1,0 +1,37 @@
+@startuml Overview
+
+!theme plain
+skinparam packageStyle rectangle
+skinparam linetype ortho
+
+title Logging System - High Level Overview
+
+package "Data Flow" {
+    [Telemetry Source] as Source
+    [LogFormatter] as Formatter
+    [LogManager] as Manager
+    [Sinks] as Sinks
+}
+
+database "RingBuffer" as Buffer
+
+Source -right-> Formatter : raw data
+Formatter -right-> Manager : LogMessage
+Manager -down-> Buffer : buffer
+Manager -right-> Sinks : route
+
+note bottom of Formatter
+  Policy-based formatting
+  (CpuPolicy, GpuPolicy, RamPolicy)
+end note
+
+note bottom of Manager
+  Created via Builder pattern
+end note
+
+note bottom of Sinks
+  Created via Factory pattern
+  (Console, File, Socket)
+end note
+
+@enduml

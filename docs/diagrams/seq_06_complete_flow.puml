@@ -1,0 +1,86 @@
+@startuml CompleteFlow
+
+!theme plain
+title Complete Application Flow
+
+actor "Main" as Main
+participant "LogManagerBuilder" as Builder
+participant "LogSinkFactory" as Factory
+participant "LogManager" as Manager
+participant "FileTelemetrySource" as Source
+participant "LogFormatter<CpuPolicy>" as Formatter
+participant "RingBuffer" as Buffer
+participant "ConsoleSink" as Console
+participant "FileSink" as File
+
+== 1. Setup Phase ==
+
+Main -> Builder: LogManagerBuilder()
+Main -> Builder: withConsoleSink()
+Main -> Builder: withFileSink("telemetry.log")
+Main -> Builder: withBufferSize(100)
+Main -> Builder: tryBuild()
+activate Builder
+
+Builder -> Factory: create(CONSOLE)
+Factory --> Builder: ConsoleSink
+Builder -> Factory: create(FILE, "telemetry.log")
+Factory --> Builder: FileSink
+
+create Manager
+Builder -> Manager: new LogManager(100)
+Builder -> Manager: addSink(consoleSink)
+Builder -> Manager: addSink(fileSink)
+Builder --> Main: expected<LogManager>
+deactivate Builder
+
+Main -> Source: FileTelemetrySourceImpl("/proc/stat")
+Main -> Source: openSource()
+Source --> Main: true
+
+Main -> Formatter: LogFormatter<CpuPolicy>()
+
+== 2. Runtime Loop ==
+
+loop every second
+    Main -> Source: readSource(rawData)
+    Source --> Main: "78.5"
+    
+    Main -> Formatter: formatDataToLogMsg("78.5")
+    Formatter --> Main: optional<LogMessage>
+    note right: CPU Usage: 78.5% | Warning...
+    
+    Main -> Manager: log(msg)
+    Manager -> Buffer: tryPush(msg)
+    Buffer --> Manager: true
+end
+
+== 3. Flush Phase ==
+
+Main -> Manager: flush()
+activate Manager
+
+loop while !buffer.isEmpty()
+    Manager -> Buffer: tryPop()
+    Buffer --> Manager: LogMessage
+    
+    Manager -> Console: write(msg)
+    Console --> Manager: void
+    
+    Manager -> File: write(msg)
+    File --> Manager: void
+end
+
+deactivate Manager
+
+== Output ==
+
+note over Console, File
+  **Console Output:**
+  [CPU] [WARNING] [2026-01-22 14:30:45] CPU Usage: 78.5% | Warning: Above normal...
+  
+  **File Output (telemetry.log):**
+  [CPU] [WARNING] [2026-01-22 14:30:45] CPU Usage: 78.5% | Warning: Above normal...
+end note
+
+@enduml

@@ -1,0 +1,105 @@
+@startuml RingBufferSequence
+
+!theme plain
+title RingBuffer Operations
+
+participant "Client" as Client
+participant "RingBuffer<T>" as Buffer
+
+== Initialization ==
+Client -> Buffer: RingBuffer(capacity=4)
+activate Buffer
+note right
+  buffer = vector<optional<T>>(4)
+  head = 0, tail = 0
+  elemCount = 0, maxCapacity = 4
+end note
+Buffer --> Client: buffer
+deactivate Buffer
+
+== Push Operations ==
+
+Client -> Buffer: tryPush(msg1)
+activate Buffer
+Buffer -> Buffer: isFull()? → false
+Buffer -> Buffer: buffer[0] = forward(msg1)
+Buffer -> Buffer: head = (0+1) % 4 = 1
+Buffer -> Buffer: elemCount = 1
+Buffer --> Client: true
+deactivate Buffer
+
+Client -> Buffer: tryPush(msg2)
+activate Buffer
+Buffer -> Buffer: buffer[1] = msg2
+Buffer -> Buffer: head = 2, elemCount = 2
+Buffer --> Client: true
+deactivate Buffer
+
+Client -> Buffer: tryPush(msg3)
+Client -> Buffer: tryPush(msg4)
+note right of Buffer
+  After 4 pushes:
+  head = 0 (wrapped)
+  tail = 0
+  elemCount = 4
+  isFull() = true
+end note
+
+Client -> Buffer: tryPush(msg5)
+activate Buffer
+Buffer -> Buffer: isFull()? → true
+Buffer --> Client: false
+note right #FF6B6B: Buffer full!
+deactivate Buffer
+
+== Pop Operations ==
+
+Client -> Buffer: tryPop()
+activate Buffer
+Buffer -> Buffer: isEmpty()? → false
+Buffer -> Buffer: value = move(buffer[0].value())
+Buffer -> Buffer: buffer[0].reset()
+Buffer -> Buffer: tail = (0+1) % 4 = 1
+Buffer -> Buffer: elemCount = 3
+Buffer --> Client: optional<T>(value)
+deactivate Buffer
+
+Client -> Buffer: tryPop()
+Client -> Buffer: tryPop()
+Client -> Buffer: tryPop()
+note right of Buffer
+  After 4 pops:
+  head = 0
+  tail = 0
+  elemCount = 0
+  isEmpty() = true
+end note
+
+Client -> Buffer: tryPop()
+activate Buffer
+Buffer -> Buffer: isEmpty()? → true
+Buffer --> Client: std::nullopt
+note right #FF6B6B: Buffer empty!
+deactivate Buffer
+
+== Visual State ==
+
+note over Buffer
+  **Circular Buffer State:**
+  
+  After push(A,B,C,D):
+  ┌───┬───┬───┬───┐
+  │ A │ B │ C │ D │
+  └───┴───┴───┴───┘
+    ↑               
+   tail            head (wrapped to 0)
+   
+  After pop() twice:
+  ┌───┬───┬───┬───┐
+  │   │   │ C │ D │
+  └───┴───┴───┴───┘
+          ↑       
+         tail     head
+end note
+
+@enduml

@@ -1,0 +1,83 @@
+@startuml CoreClasses
+
+!theme plain
+skinparam linetype ortho
+
+title Core Classes
+
+enum TelemetrySrc {
+    GPU
+    CPU
+    RAM
+}
+
+enum SeverityLvl {
+    CRITICAL
+    WARNING
+    INFO
+}
+
+class LogMessage {
+    - source: TelemetrySrc
+    - severity: SeverityLvl
+    - timeStamp: string
+    - payload: string
+    ==
+    + LogMessage(source, severity, timeStamp, payload)
+    + <<friend>> operator<<(os, msg): ostream&
+}
+
+class "RingBuffer<T>" as RingBuffer <<template>> {
+    - buffer: vector<optional<T>>
+    - head: size_t
+    - tail: size_t
+    - elemCount: size_t
+    - maxCapacity: size_t
+    ==
+    + RingBuffer(capacity: size_t)
+    + RingBuffer(RingBuffer&&) noexcept
+    __Non-copyable__
+    + RingBuffer(const&) = delete
+    + operator=(const&) = delete
+    ==
+    + tryPush<U>(value: U&&): bool
+    + tryPop(): optional<T>
+    + isEmpty(): bool
+    + isFull(): bool
+    + count(): size_t
+    + capacity(): size_t
+}
+
+class LogManager {
+    - sinks: vector<unique_ptr<ILogSink>>
+    - buffer: RingBuffer<LogMessage>
+    ==
+    + LogManager(bufferCapacity: size_t)
+    __Non-copyable, Non-movable__
+    ==
+    + addSink(sink): void
+    + log(msg: LogMessage&): void
+    + flush(): void
+    - route(msg: LogMessage&): void
+}
+
+LogMessage ..> TelemetrySrc
+LogMessage ..> SeverityLvl
+LogManager *-- RingBuffer : contains
+
+note right of RingBuffer
+  **Perfect Forwarding**
+  
+  template<typename U>
+  requires std::convertible_to<U, T>
+  bool tryPush(U&& value) {
+      buffer[head] = std::forward<U>(value);
+  }
+end note
+
+note bottom of LogManager
+  log() auto-flushes when buffer full
+  flush() pops all messages and routes to sinks
+end note
+
+@enduml

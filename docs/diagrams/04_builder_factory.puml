@@ -1,0 +1,59 @@
+@startuml BuilderFactory
+
+!theme plain
+skinparam linetype ortho
+
+title Creational Patterns (Builder & Factory)
+
+class LogManagerBuilder <<Builder>> {
+    - sinks: vector<unique_ptr<ILogSink>>
+    - bufferSize: size_t = 100
+    - errors: vector<BuilderError>
+    ==
+    + withConsoleSink(): LogManagerBuilder&
+    + withFileSink(filepath): LogManagerBuilder&
+    + withSink(type, config): LogManagerBuilder&
+    + withBufferSize(size): LogManagerBuilder&
+    + build(): unique_ptr<LogManager>
+    + tryBuild(): expected<LogManager, BuilderError>
+    + reset(): LogManagerBuilder&
+}
+
+class LogSinkFactory <<Factory>> {
+    + {static} create(type, config): expected<ILogSink, Error>
+}
+
+class LogManager {
+    - sinks: vector<unique_ptr<ILogSink>>
+    - buffer: RingBuffer<LogMessage>
+    ==
+    + addSink(sink): void
+    + log(msg): void
+    + flush(): void
+}
+
+interface ILogSink
+
+LogManagerBuilder ..> LogManager : <<creates>>
+LogManagerBuilder ..> LogSinkFactory : <<uses>>
+LogSinkFactory ..> ILogSink : <<creates>>
+LogManager o-- ILogSink : aggregates
+
+note top of LogManagerBuilder
+  **Builder Pattern**
+  Fluent API:
+  builder.withConsoleSink()
+         .withFileSink("app.log")
+         .withBufferSize(50)
+         .build();
+end note
+
+note top of LogSinkFactory
+  **Factory Pattern**
+  LogSinkFactory::create(
+    LogSinkType::FILE,
+    "app.log"
+  );
+end note
+
+@enduml

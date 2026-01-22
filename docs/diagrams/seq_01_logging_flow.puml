@@ -1,0 +1,73 @@
+@startuml LoggingFlow
+
+!theme plain
+title Main Logging Flow - Reading and Logging Telemetry Data
+
+actor "Main Application" as App
+participant "FileTelemetrySourceImpl" as Source
+participant "LogFormatter<CpuPolicy>" as Formatter
+participant "LogManager" as Manager
+participant "RingBuffer" as Buffer
+participant "ILogSink" as Sink
+
+== Initialization ==
+App -> Source: openSource()
+activate Source
+Source --> App: true
+deactivate Source
+
+== Read & Log Loop ==
+loop for each reading
+    App -> Source: readSource(rawData)
+    activate Source
+    Source --> App: true (rawData = "85.5")
+    deactivate Source
+    
+    App -> Formatter: formatDataToLogMsg("85.5")
+    activate Formatter
+    Formatter -> Formatter: stof("85.5") → 85.5
+    Formatter -> Formatter: CpuPolicy::inferSeverity(85.5)
+    note right: 85.5 > 75.0 (WARNING)\n85.5 < 90.0 (not CRITICAL)\n→ SeverityLvl::WARNING
+    Formatter -> Formatter: currentTimeStamp()
+    Formatter -> Formatter: msgDescription(85.5, WARNING)
+    Formatter --> App: optional<LogMessage>
+    deactivate Formatter
+    
+    App -> Manager: log(msg)
+    activate Manager
+    Manager -> Buffer: tryPush(msg)
+    activate Buffer
+    alt Buffer not full
+        Buffer --> Manager: true
+    else Buffer full
+        Buffer --> Manager: false
+        Manager -> Manager: flush()
+        Manager -> Buffer: tryPush(msg)
+        Buffer --> Manager: true
+    end
+    deactivate Buffer
+    deactivate Manager
+end
+
+== Flush to Sinks ==
+App -> Manager: flush()
+activate Manager
+loop while buffer not empty
+    Manager -> Buffer: tryPop()
+    activate Buffer
+    Buffer --> Manager: optional<LogMessage>
+    deactivate Buffer
+    
+    Manager -> Manager: route(msg)
+    activate Manager #DarkSalmon
+    loop for each sink
+        Manager -> Sink: write(msg)
+        activate Sink
+        Sink --> Manager: void
+        deactivate Sink
+    end
+    deactivate Manager
+end
+deactivate Manager
+
+@enduml

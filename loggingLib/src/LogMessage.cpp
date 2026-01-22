@@ -1,22 +1,20 @@
 #include "LogMessage.hpp"
+#include <magic_enum/magic_enum.hpp>
 
-LogMessage::LogMessage( std::string name,
-                        std::string timeStamp,
-                        std::string context,
-                        std::string severity,
-                        std::string payload)
-                        :name(std::move(name)),
-                         timeStamp(std::move(timeStamp)),
-                         context(std::move(context)),
-                         severity(std::move(severity)),
-                         payload(std::move(payload))  {}
+LogMessage::LogMessage(TelemetrySrc source,
+                       SeverityLvl severity,
+                       std::string timeStamp,
+                       std::string payload)
+    : source(source),
+      severity(severity),
+      timeStamp(std::move(timeStamp)),
+      payload(std::move(payload)) {}
 
-
-std::ostream& operator << ( std::ostream& os ,const LogMessage& msg){
-    os << "[" << msg.name << "] "
+std::ostream &operator<<(std::ostream &os, const LogMessage &msg)
+{
+    os << "[" << magic_enum::enum_name(msg.source) << "] "
+       << "[" << magic_enum::enum_name(msg.severity) << "] "
        << "[" << msg.timeStamp << "] "
-       << "[" << msg.context << "] "
-       << "[" << msg.severity << "] "
        << msg.payload;
 
     return os;

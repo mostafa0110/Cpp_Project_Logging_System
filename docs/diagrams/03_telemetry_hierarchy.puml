@@ -1,0 +1,63 @@
+@startuml TelemetryHierarchy
+
+!theme plain
+skinparam linetype ortho
+
+title Telemetry Source Hierarchy
+
+interface ITelemetrySource <<interface>> {
+    + {abstract} openSource(): bool
+    + {abstract} readSource(out: string&): bool
+    + {abstract} ~ITelemetrySource()
+}
+
+class FileTelemetrySourceImpl {
+    - filePath: string
+    - file: SafeFile
+    --
+    + FileTelemetrySourceImpl(path: string&)
+    + openSource(): bool
+    + readSource(out: string&): bool
+}
+
+class SocketTelemetrySourceImpl {
+    - socketPath: string
+    - socket: SafeSocket
+    --
+    + SocketTelemetrySourceImpl(path: string&)
+    + openSource(): bool
+    + readSource(out: string&): bool
+}
+
+ITelemetrySource <|-- FileTelemetrySourceImpl
+ITelemetrySource <|-- SocketTelemetrySourceImpl
+
+package "RAII Wrappers" #FFFDE7 {
+    class SafeFile {
+        - fd: int
+        --
+        + open(path, flags, mode): bool
+        + readAll(out: string&): bool
+        + close(): void
+    }
+
+    class SafeSocket {
+        - sockfd: int
+        --
+        + create(type): bool
+        + connect(path): bool
+        + readString(out, maxSize): bool
+        + close(): void
+    }
+}
+
+FileTelemetrySourceImpl *-- SafeFile
+SocketTelemetrySourceImpl *-- SafeSocket
+
+note right of SafeFile
+  **RAII Pattern**
+  Automatic resource
+  cleanup in destructor
+end note
+
+@enduml

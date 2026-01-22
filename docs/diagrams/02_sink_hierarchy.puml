@@ -1,0 +1,47 @@
+@startuml SinkHierarchy
+
+!theme plain
+skinparam linetype ortho
+
+title Sink Hierarchy (Strategy Pattern)
+
+interface ILogSink <<interface>> {
+    + {abstract} write(msg: LogMessage&): void
+    + {abstract} ~ILogSink()
+}
+
+class ConsoleSinkImpl {
+    + write(msg: LogMessage&): void
+}
+
+class FileSinkImpl {
+    - file: ofstream
+    --
+    + FileSinkImpl(path: string&)
+    + write(msg: LogMessage&): void
+}
+
+class SocketSinkImpl <<future>> {
+    - socket: SafeSocket
+    --
+    + SocketSinkImpl(address: string&)
+    + write(msg: LogMessage&): void
+}
+
+ILogSink <|-- ConsoleSinkImpl
+ILogSink <|-- FileSinkImpl
+ILogSink <|-- SocketSinkImpl
+
+class LogSinkFactory <<Factory>> {
+    + {static} create(type, config): expected<ILogSink, Error>
+}
+
+LogSinkFactory ..> ILogSink : <<creates>>
+
+note right of ILogSink
+  **Strategy Pattern**
+  Interchangeable output
+  destinations
+end note
+
+@enduml
