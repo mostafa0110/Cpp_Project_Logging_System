@@ -18,7 +18,7 @@ void LogManager::log(const LogMessage &msg)
     if (!buffer.tryPush(msg))
     {
         flush();
-        buffer.tryPush(msg);
+        (void)buffer.tryPush(msg);
     }
 }
 

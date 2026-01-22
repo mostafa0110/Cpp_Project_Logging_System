@@ -9,7 +9,7 @@
 #include <sstream>
 #include <iomanip>
 #include <charconv>
-#include <magic_enum/magic_enum.hpp>
+#include <magic_enum.hpp>
 
 template <typename Policy>
 class LogFormatter
