@@ -56,6 +56,17 @@ LogManagerBuilder &LogManagerBuilder::withBufferSize(std::size_t size)
     return *this;
 }
 
+LogManagerBuilder &LogManagerBuilder::withthreadPoolSize(std::size_t size)
+{
+    if (size == 0)
+    {
+        errors.push_back(BuilderError::INVALID_THREADPOOL_SIZE);
+        return *this;
+    }
+    threadPoolSize = size;
+    return *this;
+}
+
 std::unique_ptr<LogManager> LogManagerBuilder::build()
 {
     auto result = tryBuild();
@@ -78,7 +89,7 @@ std::expected<std::unique_ptr<LogManager>, BuilderError> LogManagerBuilder::tryB
         return std::unexpected(BuilderError::NO_SINKS_CONFIGURED);
     }
 
-    auto manager = std::make_unique<LogManager>(bufferSize);
+    auto manager = std::make_unique<LogManager>(bufferSize , threadPoolSize);
 
     // Add sinks
     for (auto &sink : sinks)

@@ -4,7 +4,12 @@ void LogManager::route(const LogMessage &msg)
 {
     for (const auto &sink : sinks)
     {
-        sink->write(msg);
+        auto sinkPtr = sink.get();        
+        LogMessage copy = msg;            
+
+        threadPool->enqueue([sinkPtr, copy]() mutable {
+            sinkPtr->write(copy);
+        });
     }
 }
 

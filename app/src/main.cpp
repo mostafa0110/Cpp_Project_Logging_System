@@ -10,11 +10,13 @@
 
 int main()
 {
+    ThreadPool pool(2);
     // ===== Build LogManager using Builder =====
     auto result = LogManagerBuilder()
                       .withConsoleSink()
                       .withFileSink("system_telemetry.log")
                       .withBufferSize(50)
+                      .withthreadPoolSize(3)
                       .tryBuild();
 
     if (!result)
@@ -48,70 +50,60 @@ int main()
     std::cout << "=== System Telemetry Demo ===\n";
     std::cout << "Reading from Linux /proc files...\n\n";
 
-    // ===== Main Loop =====
+
     for (int i = 0; i < 5; ++i)
     {
-        std::string rawData;
-
-        // Read and log CPU telemetry
-        if (cpuSource.readSource(rawData))
-        {
-            // Parse /proc/stat format: "cpu  78412 3040 14706 1944026 ..."
-            // Extract the first number (user ticks) after "cpu"
-            std::istringstream iss(rawData);
-            std::string label;
-            long long userTicks;
-            
-            iss >> label >> userTicks;
-            
-            if (label == "cpu" && iss)
+        pool.enqueue([&] {
+            std::string rawData;
+            if (cpuSource.readSource(rawData))
             {
-                if (auto msg = cpuFormatter.formatDataToLogMsg(std::to_string(userTicks)))
+                std::istringstream iss(rawData);
+                std::string label;
+                long long userTicks;
+
+                iss >> label >> userTicks;
+                if (label == "cpu" && iss)
                 {
-                    logger->log(msg.value());
+                    if (auto msg = cpuFormatter.formatDataToLogMsg(
+                            std::to_string(userTicks)))
+                    {
+                        logger->log(msg.value());
+                    }
                 }
             }
-        }
+        });
 
-        // Read and log RAM telemetry
-        if (memSource.readSource(rawData))
-        {
-            // Parse /proc/meminfo to find MemAvailable
-            // Format: "MemAvailable:   11228316 kB"
-            std::istringstream memStream(rawData);
-            std::string line;
-            
-            while (std::getline(memStream, line))
+        pool.enqueue([&] {
+            std::string rawData;
+            if (memSource.readSource(rawData))
             {
-                if (line.find("MemAvailable:") == 0)
+                std::istringstream memStream(rawData);
+                std::string line;
+
+                while (std::getline(memStream, line))
                 {
-                    std::istringstream lineStream(line);
-                    std::string label;
-                    long long memKB;
-                    
-                    lineStream >> label >> memKB;
-                    
-                    if (label == "MemAvailable:" && lineStream)
+                    if (line.rfind("MemAvailable:", 0) == 0)
                     {
-                        // Convert KB to GB for display
+                        std::istringstream lineStream(line);
+                        std::string label;
+                        long long memKB;
+
+                        lineStream >> label >> memKB;
                         double memGB = memKB / (1024.0 * 1024.0);
-                        if (auto msg = ramFormatter.formatDataToLogMsg(std::to_string(memGB)))
+
+                        if (auto msg = ramFormatter.formatDataToLogMsg(
+                                std::to_string(memGB)))
                         {
                             logger->log(msg.value());
                         }
+                        break;
                     }
-                    break;
                 }
             }
-        }
+        });
 
-        // Flush logs to sinks
+        std::this_thread::sleep_for(std::chrono::seconds(1));
         logger->flush();
-
-        if (i < 4)
-        {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-        }
     }
 
     std::cout << "\n=== Complete ===\n";

@@ -195,7 +195,6 @@ std::optional<LogMessage>
 
 ## Ring Buffer
 
-Thread-unsafe, move-only circular buffer:
 
 ```cpp
 RingBuffer<LogMessage> buffer(100);  // Capacity of 100
