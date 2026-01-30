@@ -21,7 +21,7 @@ enum class BuilderError
 class LogManagerBuilder
 {
 private:
-    std::vector<std::unique_ptr<ILogSink>> sinks;
+    std::vector<std::shared_ptr<ILogSink>> sinks;
     std::size_t bufferSize = 100;
     std::size_t threadPoolSize = 4;
     std::vector<BuilderError> errors;
@@ -31,7 +31,7 @@ public:
 
     LogManagerBuilder &withConsoleSink();
     LogManagerBuilder &withFileSink(const std::string &filepath);
-    LogManagerBuilder &withSink(std::unique_ptr<ILogSink> sink);
+    LogManagerBuilder &withSink(std::shared_ptr<ILogSink> sink);
     LogManagerBuilder &withSink(LogSinkType type, const std::string &config = "");
     LogManagerBuilder &withBufferSize(std::size_t size);
     LogManagerBuilder &withthreadPoolSize(std::size_t size);

@@ -5,7 +5,7 @@
 
 LogManagerBuilder &LogManagerBuilder::withConsoleSink()
 {
-    sinks.push_back(std::make_unique<ConsoleSinkImpl>());
+    sinks.push_back(std::make_shared<ConsoleSinkImpl>());
     return *this;
 }
 
@@ -16,11 +16,11 @@ LogManagerBuilder &LogManagerBuilder::withFileSink(const std::string &filepath)
         errors.push_back(BuilderError::EMPTY_FILEPATH);
         return *this;
     }
-    sinks.push_back(std::make_unique<FileSinkImpl>(filepath));
+    sinks.push_back(std::make_shared<FileSinkImpl>(filepath));
     return *this;
 }
 
-LogManagerBuilder &LogManagerBuilder::withSink(std::unique_ptr<ILogSink> sink)
+LogManagerBuilder &LogManagerBuilder::withSink(std::shared_ptr<ILogSink> sink)
 {
     if (!sink)
     {
@@ -89,9 +89,8 @@ std::expected<std::unique_ptr<LogManager>, BuilderError> LogManagerBuilder::tryB
         return std::unexpected(BuilderError::NO_SINKS_CONFIGURED);
     }
 
-    auto manager = std::make_unique<LogManager>(bufferSize , threadPoolSize);
+    auto manager = std::make_unique<LogManager>(bufferSize, threadPoolSize);
 
-    // Add sinks
     for (auto &sink : sinks)
     {
         manager->addSink(std::move(sink));

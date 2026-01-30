@@ -13,7 +13,7 @@ private:
     static constexpr std::size_t DEFAULT_BUFFER_CAPACITY = 100;
     static constexpr std::size_t DEFAULT_THREAD_COUNT = 4;
 
-    std::vector<std::unique_ptr<ILogSink>> sinks;
+    std::vector<std::shared_ptr<ILogSink>> sinks;
     RingBuffer<LogMessage> buffer;
     std::unique_ptr<ThreadPool> threadPool;
 
@@ -21,7 +21,7 @@ private:
 
 public:
     explicit LogManager(
-        std::size_t bufferCapacity = DEFAULT_BUFFER_CAPACITY , 
+        std::size_t bufferCapacity = DEFAULT_BUFFER_CAPACITY, 
         std::size_t numThreads = DEFAULT_THREAD_COUNT)
         : buffer(bufferCapacity),
           threadPool(std::make_unique<ThreadPool>(numThreads))
@@ -34,7 +34,7 @@ public:
     LogManager &operator=(const LogManager &other) = delete;
     LogManager &operator=(LogManager &&other) = delete;
 
-    void addSink(std::unique_ptr<ILogSink> sink);
+    void addSink(std::shared_ptr<ILogSink> sink);
     void log(const LogMessage &msg);
     void flush();
 };

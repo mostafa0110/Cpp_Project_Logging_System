@@ -1,9 +1,13 @@
 #pragma once
 
 #include "ILogSink.hpp"
+#include <mutex>
 
 class ConsoleSinkImpl : public ILogSink
 {
+private:
+    static std::mutex coutMutex;
+
 public:
     ConsoleSinkImpl() = default;
     ~ConsoleSinkImpl() override = default;

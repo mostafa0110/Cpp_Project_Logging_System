@@ -7,6 +7,7 @@ FileSinkImpl::FileSinkImpl(const std::string &path)
 
 void FileSinkImpl::write(const LogMessage &msg)
 {
+    std::lock_guard<std::mutex> lock(writeMutex);
     if (file.is_open())
     {
         file << msg << std::endl;

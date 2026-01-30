@@ -4,16 +4,17 @@ void LogManager::route(const LogMessage &msg)
 {
     for (const auto &sink : sinks)
     {
-        auto sinkPtr = sink.get();        
-        LogMessage copy = msg;            
+        // Capture shared_ptr by value to extend sink lifetime
+        auto sinkCopy = sink;
+        LogMessage msgCopy = msg;
 
-        threadPool->enqueue([sinkPtr, copy]() mutable {
-            sinkPtr->write(copy);
+        threadPool->enqueue([sinkCopy, msgCopy]() mutable {
+            sinkCopy->write(msgCopy);
         });
     }
 }
 
-void LogManager::addSink(std::unique_ptr<ILogSink> sink)
+void LogManager::addSink(std::shared_ptr<ILogSink> sink)
 {
     sinks.push_back(std::move(sink));
 }

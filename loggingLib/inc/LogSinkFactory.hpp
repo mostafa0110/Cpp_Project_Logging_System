@@ -18,5 +18,5 @@ class LogSinkFactory
 {
 public:
     LogSinkFactory() = delete;
-    static std::expected<std::unique_ptr<ILogSink>, SinkCreationError> create(LogSinkType type, const std::string &config = "");
+    static std::expected<std::shared_ptr<ILogSink>, SinkCreationError> create(LogSinkType type, const std::string &config = "");
 };

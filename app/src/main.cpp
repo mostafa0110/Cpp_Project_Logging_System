@@ -10,7 +10,6 @@
 
 int main()
 {
-    ThreadPool pool(2);
     // ===== Build LogManager using Builder =====
     auto result = LogManagerBuilder()
                       .withConsoleSink()
@@ -21,7 +20,7 @@ int main()
 
     if (!result)
     {
-        std::cerr << "Failed to create LogManager: \n" ;
+        std::cerr << "Failed to create LogManager\n";
         return 1;
     }
 
@@ -38,72 +37,73 @@ int main()
     // ===== Open Sources =====
     if (!cpuSource.openSource())
     {
-        std::cerr << "Failed to open /proc/stat" << std::endl;
+        std::cerr << "Failed to open /proc/stat\n";
         return 1;
     }
     if (!memSource.openSource())
     {
-        std::cerr << "Failed to open /proc/meminfo" << std::endl;
+        std::cerr << "Failed to open /proc/meminfo\n";
         return 1;
     }
 
     std::cout << "=== System Telemetry Demo ===\n";
     std::cout << "Reading from Linux /proc files...\n\n";
 
-
+    // ===== Main Loop (single-threaded reads, internal pool handles writes) =====
     for (int i = 0; i < 5; ++i)
     {
-        pool.enqueue([&] {
-            std::string rawData;
-            if (cpuSource.readSource(rawData))
-            {
-                std::istringstream iss(rawData);
-                std::string label;
-                long long userTicks;
+        std::string rawData;
 
-                iss >> label >> userTicks;
-                if (label == "cpu" && iss)
+        // Read and log CPU telemetry
+        if (cpuSource.readSource(rawData))
+        {
+            std::istringstream iss(rawData);
+            std::string label;
+            long long userTicks;
+
+            iss >> label >> userTicks;
+            if (label == "cpu" && iss)
+            {
+                if (auto msg = cpuFormatter.formatDataToLogMsg(std::to_string(userTicks)))
                 {
-                    if (auto msg = cpuFormatter.formatDataToLogMsg(
-                            std::to_string(userTicks)))
+                    logger->log(msg.value());
+                }
+            }
+        }
+
+        // Read and log RAM telemetry
+        if (memSource.readSource(rawData))
+        {
+            std::istringstream memStream(rawData);
+            std::string line;
+
+            while (std::getline(memStream, line))
+            {
+                if (line.rfind("MemAvailable:", 0) == 0)
+                {
+                    std::istringstream lineStream(line);
+                    std::string label;
+                    long long memKB;
+
+                    lineStream >> label >> memKB;
+                    double memGB = memKB / (1024.0 * 1024.0);
+
+                    if (auto msg = ramFormatter.formatDataToLogMsg(std::to_string(memGB)))
                     {
                         logger->log(msg.value());
                     }
+                    break;
                 }
             }
-        });
+        }
 
-        pool.enqueue([&] {
-            std::string rawData;
-            if (memSource.readSource(rawData))
-            {
-                std::istringstream memStream(rawData);
-                std::string line;
-
-                while (std::getline(memStream, line))
-                {
-                    if (line.rfind("MemAvailable:", 0) == 0)
-                    {
-                        std::istringstream lineStream(line);
-                        std::string label;
-                        long long memKB;
-
-                        lineStream >> label >> memKB;
-                        double memGB = memKB / (1024.0 * 1024.0);
-
-                        if (auto msg = ramFormatter.formatDataToLogMsg(
-                                std::to_string(memGB)))
-                        {
-                            logger->log(msg.value());
-                        }
-                        break;
-                    }
-                }
-            }
-        });
-
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        // Flush logs to sinks (internal pool handles the actual writes)
         logger->flush();
+
+        if (i < 4)
+        {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
     }
 
     std::cout << "\n=== Complete ===\n";
