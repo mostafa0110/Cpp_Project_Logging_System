@@ -5,6 +5,7 @@ out/
 # IDE
 .vscode/
 .idea/
+.cache/
 *.swp
 
 # Compiled
@@ -18,11 +19,16 @@ out/
 *.dll
 *.pdb
 
+# Bazel
+bazel-*
+MODULE.bazel.lock
+
 # Tools
 *.jar
 
 # Logs 
 *.log
+/tmp/vsomeip*.log
 
 # OS
 .DS_Store

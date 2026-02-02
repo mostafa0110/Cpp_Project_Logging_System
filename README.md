@@ -125,6 +125,68 @@ The project provides convenient run targets:
 | `run_test_server` | `make run_test_server` | Start SomeIP test server |
 | `run_test_client` | `make run_test_client` | Start SomeIP test client |
 
+---
+
+## Building with Bazel
+
+The project also supports Bazel as an alternative build system.
+
+### Requirements
+
+- **Bazel 7.0+** (with bzlmod support)
+- **vsomeip 3.x** installed at `/usr/local`
+
+### Bazel Project Structure
+
+```
+MODULE.bazel          # Project deps (magic_enum, vsomeip)
+.bazelrc              # Build config (C++23)
+loggingLib/BUILD      # Library target
+app/BUILD             # App binary
+test/BUILD            # Test binaries
+```
+
+### Build Commands
+
+```bash
+# Build logging library
+bazel build //loggingLib:logging
+
+# Build main app
+bazel build //app:app
+
+# Build test server
+bazel build //test:someip_test_server
+
+# Build test client
+bazel build //test:someip_test_client
+
+# Build all
+bazel build //...
+```
+
+### Run Commands
+
+```bash
+# Run main app (VSOMEIP_CONFIGURATION auto-set)
+bazel run //app:app
+
+# Run test server (Terminal 1)
+bazel run //test:someip_test_server
+
+# Run test client (Terminal 2)
+bazel run //test:someip_test_client
+```
+
+### Bazel Targets Summary
+
+| Target | Description |
+|--------|-------------|
+| `//loggingLib:logging` | Core library with vsomeip |
+| `//app:app` | Main demo application |
+| `//test:someip_test_server` | Mock vsomeip server |
+| `//test:someip_test_client` | Test client |
+
 ## Usage
 
 ### Basic Usage with Thread Pool

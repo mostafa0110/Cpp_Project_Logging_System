@@ -1,0 +1,6 @@
+# Bazel Configuration
+
+build --cxxopt=-std=c++23
+build --host_cxxopt=-std=c++23
+build --color=yes
+test --test_output=errors

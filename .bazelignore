@@ -1,0 +1,3 @@
+# Bazel ignore file - directories to ignore during build
+# CMake build directory (contains incompatible BUILD files)
+build
