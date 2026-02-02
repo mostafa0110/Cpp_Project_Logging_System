@@ -1,6 +1,15 @@
 # C++ Logging System
 
-A modern, modular logging library for C++23 featuring policy-based design, design patterns, thread pool, and zero-cost abstractions.
+A modern, modular logging library for C++23 featuring policy-based design, design patterns, thread pool, vsomeip integration, and zero-cost abstractions.
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [README.md](README.md) | Overview, quick start, CMake targets |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Design patterns, threading model, data flow |
+| [docs/SOMEIP.md](docs/SOMEIP.md) | vsomeip configuration, testing, troubleshooting |
+| [docs/API.md](docs/API.md) | Complete class and method reference |
 
 ## Features
 
@@ -14,15 +23,16 @@ A modern, modular logging library for C++23 featuring policy-based design, desig
 - **Type-Safe Enums** - `LogSinkType`, `SeverityLvl`, `TelemetrySrc`
 - **Modern Error Handling** - Uses `std::expected` and `std::optional`
 - **RAII Wrappers** - `SafeFile`, `SafeSocket` for resource management
+- **SomeIP Telemetry** - Remote telemetry via vsomeip protocol
 
 ## Architecture
 
 ```
 ┌─────────────────────┐     ┌──────────────────┐     ┌─────────────────┐
 │  TelemetrySource    │────▶│   LogFormatter   │────▶│   LogManager    │
-│  (File/Socket)      │     │  (Policy-based)  │     │   (Builder)     │
-└─────────────────────┘     └──────────────────┘     └─────────────────┘
-                                    │                        │
+│  (File/Socket/      │     │  (Policy-based)  │     │   (Builder)     │
+│   SomeIP)           │     └──────────────────┘     └─────────────────┘
+└─────────────────────┘             │                        │
                                     ▼                        ▼
                             ┌──────────────┐         ┌──────────────┐
                             │  LogMessage  │         │  RingBuffer  │
@@ -47,34 +57,37 @@ A modern, modular logging library for C++23 featuring policy-based design, desig
 
 ```
 Cpp_Project_Logging_System/
-├── CMakeLists.txt
+├── CMakeLists.txt              # Root CMake with vsomeip config
 ├── README.md
+├── config/                     # vsomeip JSON configurations
+│   ├── vsomeip-client.json     # Client-side config
+│   └── vsomeip-server.json     # Server-side config
 ├── app/
 │   ├── CMakeLists.txt
 │   └── src/
-│       └── main.cpp                # Demo application (Linux telemetry)
-└── loggingLib/
+│       └── main.cpp            # Demo app (Linux + SomeIP telemetry)
+├── loggingLib/
+│   ├── CMakeLists.txt
+│   ├── include/                # Public headers
+│   │   ├── interfaces/         # ILogSink, ITelemetrySource
+│   │   ├── LogFormatter.hpp
+│   │   ├── LogManager.hpp
+│   │   ├── LogManagerBuilder.hpp
+│   │   ├── LogMessage.hpp
+│   │   ├── LogPolicies.hpp
+│   │   ├── LogSinkFactory.hpp
+│   │   └── LogTypes.hpp
+│   └── src/                    # Private implementation
+│       ├── core/               # LogManager, LogMessage, Factory
+│       ├── sinks/              # Console/File sink implementations
+│       ├── sources/            # File, Socket, SomeIP adapters
+│       ├── concurrency/        # ThreadPool, RingBuffer
+│       └── utils/              # SafeFile, SafeSocket RAII wrappers
+└── test/
     ├── CMakeLists.txt
-    ├── inc/
-    │   ├── ILogSink.hpp            # Sink interface
-    │   ├── ITelemetrySource.hpp    # Telemetry source interface
-    │   ├── ConsoleSinkImpl.hpp     # Thread-safe console sink
-    │   ├── FileSinkImpl.hpp        # Thread-safe file sink
-    │   ├── FileTelemetrySourceImpl.hpp
-    │   ├── SocketTelemetrySourceImpl.hpp
-    │   ├── LogFormatter.hpp        # Policy-based formatter
-    │   ├── LogManager.hpp          # Central log manager
-    │   ├── LogManagerBuilder.hpp   # Builder pattern
-    │   ├── LogMessage.hpp          # Log message structure
-    │   ├── LogPolicies.hpp         # CpuPolicy, GpuPolicy, RamPolicy
-    │   ├── LogSinkFactory.hpp      # Factory pattern
-    │   ├── LogTypes.hpp            # Enums
-    │   ├── RingBuffer.hpp          # Thread-safe circular buffer
-    │   ├── ThreadPool.hpp          # Worker thread pool
-    │   ├── SafeFile.hpp            # RAII file wrapper
-    │   └── SafeSocket.hpp          # RAII socket wrapper
-    └── src/
-        └── *.cpp
+    ├── SomeIPTestServer.hpp    # Mock vsomeip server
+    ├── someip_test_main.cpp    # Test server executable
+    └── someip_test_client.cpp  # Test client executable
 ```
 
 ## Requirements
@@ -83,6 +96,7 @@ Cpp_Project_Logging_System/
 - **CMake 3.14+**
 - **Linux** (uses `/proc/stat`, `/proc/meminfo` for telemetry demo)
 - **GCC 13+** or **Clang 16+** (C++23 support)
+- **vsomeip 3.x** (for SomeIP telemetry)
 
 ## Building
 
@@ -91,6 +105,25 @@ mkdir build && cd build
 cmake .. -G "Unix Makefiles"
 cmake --build .
 ```
+
+### Build Outputs
+
+| Target | Description |
+|--------|-------------|
+| `app` | Main demo application |
+| `logging` | Static logging library |
+| `someip_test_server` | SomeIP test server |
+| `someip_test_client` | SomeIP test client |
+
+## CMake Custom Targets
+
+The project provides convenient run targets:
+
+| Target | Command | Description |
+|--------|---------|-------------|
+| `run_app_someip` | `make run_app_someip` | Run main app with SomeIP client config |
+| `run_test_server` | `make run_test_server` | Start SomeIP test server |
+| `run_test_client` | `make run_test_client` | Start SomeIP test client |
 
 ## Usage
 
@@ -125,6 +158,95 @@ int main() {
 }
 ```
 
+### Using SomeIP Telemetry Source
+
+```cpp
+#include "sources/SomeIPTelemetryAdapter.hpp"
+
+SomeIPTelemetryAdapter someipSource;
+
+// Initialize (connects to vsomeip server)
+if (someipSource.openSource()) {
+    std::string data;
+    if (someipSource.readSource(data)) {
+        std::cout << "Remote load: " << data << "%" << std::endl;
+    }
+}
+```
+
+## Testing SomeIP
+
+The project includes a complete vsomeip test setup:
+
+### 1. Start the Test Server
+
+```bash
+cd build
+make run_test_server
+```
+
+The server will output:
+```
+=== SomeIP Telemetry Test Server ===
+Service ID: 0x1234
+Instance ID: 0x5678
+Method ID: 0x0001
+
+Server is running. Press Ctrl+C to stop.
+Responding with fixed load value: 75.5%
+```
+
+### 2. Run the Test Client (in another terminal)
+
+```bash
+cd build
+make run_test_client
+```
+
+Expected output:
+```
+=== SomeIP Telemetry Test Client ===
+Connecting to Service ID: 0x1234, Instance: 0x5678
+
+Client initialized. Waiting for server...
+[Request #1] Received load: 75.5%
+[Request #2] Received load: 75.5%
+...
+```
+
+### 3. Run Main App with SomeIP
+
+```bash
+# Terminal 1: Start test server
+make run_test_server
+
+# Terminal 2: Run app
+make run_app_someip
+```
+
+## SomeIP Configuration
+
+Configuration files in `config/`:
+
+### vsomeip-client.json
+```json
+{
+    "unicast": "127.0.0.1",
+    "applications": [{ "name": "TelemetryClient", "id": "0x1111" }],
+    "service-discovery": { "enable": true, "multicast": "224.224.224.245", "port": 30490 }
+}
+```
+
+### vsomeip-server.json
+```json
+{
+    "unicast": "127.0.0.1",
+    "applications": [{ "name": "TelemetryServer", "id": "0x2222" }],
+    "routing": "TelemetryServer",
+    "services": [{ "service": "0x1234", "instance": "0x5678", "reliable": { "port": 30509 } }]
+}
+```
+
 ## Thread Safety
 
 | Component | Thread Safety | Mechanism |
@@ -134,6 +256,7 @@ int main() {
 | `ConsoleSinkImpl` | ✅ Safe | Static mutex (one `std::cout`) |
 | `FileSinkImpl` | ✅ Safe | Per-instance mutex |
 | `LogManager` | ✅ Safe | Thread-safe buffer + shared_ptr sinks |
+| `SomeIPTelemetrySourceImpl` | ✅ Safe | Mutex + atomic flags |
 
 ## Design Patterns
 
@@ -143,6 +266,8 @@ int main() {
 | **Factory** | `LogSinkFactory` | Centralized sink creation |
 | **Strategy** | `ILogSink` interface | Interchangeable output destinations |
 | **Policy** | `LogFormatter<Policy>` | Compile-time behavior configuration |
+| **Adapter** | `SomeIPTelemetryAdapter` | Adapts vsomeip to ITelemetrySource |
+| **Singleton** | `SomeIPTelemetrySourceImpl` | Single vsomeip application instance |
 | **RAII** | `SafeFile`, `SafeSocket` | Resource management |
 | **Thread Pool** | `ThreadPool` | Async log writing |
 

@@ -1,6 +1,6 @@
 #include "LogManagerBuilder.hpp"
-#include "ConsoleSinkImpl.hpp"
-#include "FileSinkImpl.hpp"
+#include "sinks/ConsoleSinkImpl.hpp"
+#include "sinks/FileSinkImpl.hpp"
 #include <stdexcept>
 
 LogManagerBuilder &LogManagerBuilder::withConsoleSink()

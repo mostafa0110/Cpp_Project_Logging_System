@@ -1,7 +1,8 @@
 #include "LogManagerBuilder.hpp"
 #include "LogFormatter.hpp"
 #include "LogPolicies.hpp"
-#include "FileTelemetrySourceImpl.hpp"
+#include "sources/FileTelemetrySourceImpl.hpp"
+#include "sources/SomeIPTelemetryAdapter.hpp"
 
 #include <iostream>
 #include <thread>
@@ -26,13 +27,19 @@ int main()
 
     auto logger = std::move(result.value());
 
-    // ===== Setup Telemetry Sources (Linux /proc files) =====
+    // ===== Setup Telemetry Sources =====
+    // Local Linux /proc files
     FileTelemetrySourceImpl cpuSource("/proc/stat");
     FileTelemetrySourceImpl memSource("/proc/meminfo");
+    
+    // Remote SomeIP telemetry (vsomeip-based)
+    SomeIPTelemetryAdapter someipSource;
+    bool someipAvailable = false;
 
     // ===== Setup Formatters (Policy-based) =====
     LogFormatter<CpuPolicy> cpuFormatter;
     LogFormatter<RamPolicy> ramFormatter;
+    LogFormatter<LoadPolicy> loadFormatter;  // For SomeIP load data
 
     // ===== Open Sources =====
     if (!cpuSource.openSource())
@@ -45,9 +52,24 @@ int main()
         std::cerr << "Failed to open /proc/meminfo\n";
         return 1;
     }
+    
+    // SomeIP is optional - don't fail if server is not running
+    if (someipSource.openSource())
+    {
+        someipAvailable = true;
+        std::cout << "SomeIP telemetry source connected.\n";
+    }
+    else
+    {
+        std::cout << "SomeIP telemetry source not available (server may not be running).\n";
+    }
 
     std::cout << "=== System Telemetry Demo ===\n";
-    std::cout << "Reading from Linux /proc files...\n\n";
+    std::cout << "Reading from Linux /proc files";
+    if (someipAvailable) {
+        std::cout << " and SomeIP";
+    }
+    std::cout << "...\n\n";
 
     // ===== Main Loop (single-threaded reads, internal pool handles writes) =====
     for (int i = 0; i < 5; ++i)
@@ -94,6 +116,15 @@ int main()
                     }
                     break;
                 }
+            }
+        }
+        
+        // Read and log SomeIP telemetry (remote load percentage)
+        if (someipAvailable && someipSource.readSource(rawData))
+        {
+            if (auto msg = loadFormatter.formatDataToLogMsg(rawData))
+            {
+                logger->log(msg.value());
             }
         }
 

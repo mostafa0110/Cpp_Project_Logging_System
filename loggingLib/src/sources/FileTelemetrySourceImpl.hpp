@@ -1,7 +1,7 @@
 #pragma once
 
-#include "ITelemetrySource.hpp"
-#include "SafeFile.hpp"
+#include "interfaces/ITelemetrySource.hpp"
+#include "utils/SafeFile.hpp"
 
 class FileTelemetrySourceImpl : public ITelemetrySource {
 private:

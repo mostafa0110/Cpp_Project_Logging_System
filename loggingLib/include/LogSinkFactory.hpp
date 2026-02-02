@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ILogSink.hpp"
+#include "interfaces/ILogSink.hpp"
 #include "LogTypes.hpp"
 #include <memory>
 #include <string>

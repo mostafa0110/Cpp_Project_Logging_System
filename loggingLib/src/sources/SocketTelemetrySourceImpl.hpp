@@ -1,7 +1,7 @@
 #pragma once
 
-#include "ITelemetrySource.hpp"
-#include "SafeSocket.hpp"
+#include "interfaces/ITelemetrySource.hpp"
+#include "utils/SafeSocket.hpp"
 
 class SocketTelemetrySourceImpl : public ITelemetrySource {
 private:

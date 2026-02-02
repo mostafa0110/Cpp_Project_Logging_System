@@ -49,3 +49,18 @@ struct RamPolicy
             :                    SeverityLvl::INFO;
     }
 };
+
+// Policy for SomeIP load percentage data (0-100%)
+struct LoadPolicy
+{
+    static constexpr TelemetrySrc context = TelemetrySrc::LOAD;
+    static constexpr std::string_view unit = "%";
+    static constexpr float WARNING = 70.0f;
+    static constexpr float CRITICAL = 90.0f;
+
+    static constexpr SeverityLvl inferSeverity(float val) noexcept {
+        return (val > CRITICAL) ? SeverityLvl::CRITICAL
+            : (val > WARNING)  ? SeverityLvl::WARNING
+            :                    SeverityLvl::INFO;
+    }
+};

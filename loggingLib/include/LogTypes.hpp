@@ -15,6 +15,7 @@ enum class SeverityLvl {
 enum class TelemetrySrc {
     GPU,
     CPU,
-    RAM
+    RAM,
+    LOAD  // SomeIP load percentage
 };
 

@@ -72,7 +72,9 @@ private:
             auto task = std::move(tasks.front());
             tasks.pop();        
             lock.unlock();      // finished operations on shared queue allow other thread to join
-            task();             // start executing the function
+            if (task) {
+                task();         // start executing the function
+            }
         }
     }
 };

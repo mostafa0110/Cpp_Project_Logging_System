@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ILogSink.hpp"
+#include "interfaces/ILogSink.hpp"
 #include <mutex>
 
 class ConsoleSinkImpl : public ILogSink

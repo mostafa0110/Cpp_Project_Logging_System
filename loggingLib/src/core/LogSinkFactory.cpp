@@ -1,6 +1,6 @@
 #include "LogSinkFactory.hpp"
-#include "FileSinkImpl.hpp"
-#include "ConsoleSinkImpl.hpp"
+#include "sinks/FileSinkImpl.hpp"
+#include "sinks/ConsoleSinkImpl.hpp"
 
 std::expected<std::shared_ptr<ILogSink>, SinkCreationError> LogSinkFactory::create(LogSinkType type, const std::string &config)
 {

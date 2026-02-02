@@ -1,11 +1,11 @@
 #pragma once
 
-#include "ILogSink.hpp"
+#include "interfaces/ILogSink.hpp"
 #include <memory>
 #include <vector>
-#include "RingBuffer.hpp"
+#include "concurrency/RingBuffer.hpp"
 #include "LogMessage.hpp"
-#include "ThreadPool.hpp"
+#include "concurrency/ThreadPool.hpp"
 
 class LogManager
 {
